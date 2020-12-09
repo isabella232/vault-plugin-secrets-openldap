@@ -143,3 +143,28 @@ func shouldTryLastPwd(lastPwd string, lastBindPasswordRotation time.Time) bool {
 	}
 	return lastBindPasswordRotation.Add(10 * time.Minute).After(time.Now())
 }
+
+func (c *Client) Add(cfg *Config, addRequests ...*ldap.AddRequest) (successfulRequests []*ldap.AddRequest, err error) {
+	conn, err := c.ldap.DialLDAP(cfg.ConfigEntry)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if err := bind(cfg, conn); err != nil {
+		return nil, err
+	}
+
+	successfulRequests = make([]*ldap.AddRequest, 0, len(addRequests))
+	for _, req := range addRequests {
+		if req == nil {
+			continue
+		}
+		err := conn.Add(req)
+		if err != nil {
+			return successfulRequests, fmt.Errorf("failed to execute add request: %w", err)
+		}
+		successfulRequests = append(successfulRequests, req)
+	}
+	return successfulRequests, nil
+}
